@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MealMind — AI Cooking Planner</title>
+  <meta name="description" content="Generate a personalized daily meal plan with grocery lists, substitutions, and budget analysis — powered by AI.">
+  <meta property="og:title" content="MealMind — AI Cooking Planner">
+  <meta property="og:description" content="Your AI-powered daily cooking to-do list.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ========== WELCOME SCREEN ========== -->
+  <section id="welcome" class="screen active">
+    <div class="container welcome-content">
+      <div class="welcome-icon">🍳</div>
+      <h1>MealMind</h1>
+      <p class="tagline">Your AI-powered daily cooking planner</p>
+      <p class="subtitle">Tell us your preferences and get a complete meal plan with grocery list, substitutions, and budget breakdown.</p>
+      <button id="start-btn" class="btn btn-primary btn-lg">
+        Plan My Day <span class="arrow">→</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ========== API KEY MODAL ========== -->
+  <div id="api-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h2>🔑 Enter Gemini API Key</h2>
+      <p>Get your free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
+      <input type="password" id="api-key-input" placeholder="Paste your API key here" autocomplete="off">
+      <p class="hint">Your key is stored only in your browser. Never sent anywhere except Google's API.</p>
+      <div class="modal-actions">
+        <button id="save-key-btn" class="btn btn-primary">Save & Continue</button>
+        <button id="cancel-key-btn" class="btn btn-ghost">Cancel</button>
+      </div>
+      <p id="api-key-error" class="error-text hidden"></p>
+    </div>
+  </div>
+
+  <!-- ========== WIZARD SCREEN ========== -->
+  <section id="wizard" class="screen hidden">
+    <div class="container">
+      <div class="wizard-header">
+        <button id="wizard-back-btn" class="btn btn-ghost btn-sm">← Back</button>
+        <div class="step-indicators">
+          <span class="step-dot active" data-step="1"></span>
+          <span class="step-dot" data-step="2"></span>
+          <span class="step-dot" data-step="3"></span>
+        </div>
+        <div class="step-count">Step <span id="current-step-num">1</span>/3</div>
+      </div>
+
+      <!-- WIZARD STEP 1: Diet & Cuisine -->
+      <div id="wizard-step-1" class="wizard-step active">
+        <h2>What's your diet?</h2>
+        <div class="option-grid" id="diet-options">
+          <button class="option-card" data-field="diet" data-value="vegetarian">
+            <span class="option-emoji">🥗</span>
+            <span class="option-label">Vegetarian</span>
+          </button>
+          <button class="option-card" data-field="diet" data-value="non-vegetarian">
+            <span class="option-emoji">🍗</span>
+            <span class="option-label">Non-Veg</span>
+          </button>
+          <button class="option-card" data-field="diet" data-value="vegan">
+            <span class="option-emoji">🌱</span>
+            <span class="option-label">Vegan</span>
+          </button>
+          <button class="option-card" data-field="diet" data-value="eggetarian">
+            <span class="option-emoji">🥚</span>
+            <span class="option-label">Eggetarian</span>
+          </button>
+        </div>
+
+        <h2>Preferred Cuisine</h2>
+        <div class="option-grid" id="cuisine-options">
+          <button class="option-card" data-field="cuisine" data-value="north-indian">
+            <span class="option-emoji">🫓</span>
+            <span class="option-label">North Indian</span>
+          </button>
+          <button class="option-card" data-field="cuisine" data-value="south-indian">
+            <span class="option-emoji">🍛</span>
+            <span class="option-label">South Indian</span>
+          </button>
+          <button class="option-card" data-field="cuisine" data-value="chinese">
+            <span class="option-emoji">🥡</span>
+            <span class="option-label">Indo-Chinese</span>
+          </button>
+          <button class="option-card" data-field="cuisine" data-value="mixed">
+            <span class="option-emoji">🌍</span>
+            <span class="option-label">Mixed / Any</span>
+          </button>
+        </div>
+
+        <h2>Any allergies?</h2>
+        <div class="option-grid small" id="allergy-options">
+          <button class="option-card toggle" data-field="allergies" data-value="dairy">🥛 Dairy</button>
+          <button class="option-card toggle" data-field="allergies" data-value="nuts">🥜 Nuts</button>
+          <button class="option-card toggle" data-field="allergies" data-value="gluten">🌾 Gluten</button>
+          <button class="option-card toggle" data-field="allergies" data-value="soy">🫘 Soy</button>
+          <button class="option-card toggle" data-field="allergies" data-value="none">✅ None</button>
+        </div>
+
+        <div class="wizard-nav">
+          <div></div>
+          <button id="step1-next" class="btn btn-primary">Next →</button>
+        </div>
+      </div>
+
+      <!-- WIZARD STEP 2: Day Context -->
+      <div id="wizard-step-2" class="wizard-step hidden">
+        <h2>What kind of day is it?</h2>
+        <div class="option-grid" id="daytype-options">
+          <button class="option-card" data-field="dayType" data-value="busy">
+            <span class="option-emoji">⚡</span>
+            <span class="option-label">Busy Workday</span>
+          </button>
+          <button class="option-card" data-field="dayType" data-value="relaxed">
+            <span class="option-emoji">☀️</span>
+            <span class="option-label">Relaxed Day</span>
+          </button>
+          <button class="option-card" data-field="dayType" data-value="hosting">
+            <span class="option-emoji">🎉</span>
+            <span class="option-label">Hosting Guests</span>
+          </button>
+        </div>
+
+        <h2>How many people?</h2>
+        <div class="counter-control">
+          <button id="people-minus" class="btn btn-counter">−</button>
+          <span id="people-count" class="counter-value">2</span>
+          <button id="people-plus" class="btn btn-counter">+</button>
+        </div>
+
+        <h2>Cooking skill level</h2>
+        <div class="option-grid" id="skill-options">
+          <button class="option-card" data-field="skill" data-value="beginner">
+            <span class="option-emoji">🌶️</span>
+            <span class="option-label">Beginner</span>
+          </button>
+          <button class="option-card" data-field="skill" data-value="intermediate">
+            <span class="option-emoji">🌶️🌶️</span>
+            <span class="option-label">Intermediate</span>
+          </button>
+          <button class="option-card" data-field="skill" data-value="advanced">
+            <span class="option-emoji">🌶️🌶️🌶️</span>
+            <span class="option-label">Advanced</span>
+          </button>
+        </div>
+
+        <div class="wizard-nav">
+          <button id="step2-back" class="btn btn-ghost">← Back</button>
+          <button id="step2-next" class="btn btn-primary">Next →</button>
+        </div>
+      </div>
+
+      <!-- WIZARD STEP 3: Budget -->
+      <div id="wizard-step-3" class="wizard-step hidden">
+        <h2>Set your daily budget</h2>
+
+        <div class="budget-presets" id="budget-presets">
+          <button class="option-card" data-field="budgetPreset" data-value="300">
+            <span class="option-emoji">💰</span>
+            <span class="option-label">Economy</span>
+            <span class="option-sub">₹300</span>
+          </button>
+          <button class="option-card selected" data-field="budgetPreset" data-value="600">
+            <span class="option-emoji">💰💰</span>
+            <span class="option-label">Standard</span>
+            <span class="option-sub">₹600</span>
+          </button>
+          <button class="option-card" data-field="budgetPreset" data-value="1200">
+            <span class="option-emoji">💰💰💰</span>
+            <span class="option-label">Premium</span>
+            <span class="option-sub">₹1200</span>
+          </button>
+        </div>
+
+        <div class="budget-slider-wrapper">
+          <input type="range" id="budget-slider" min="200" max="2000" step="50" value="600">
+          <div class="budget-display">
+            <span>₹200</span>
+            <span id="budget-value" class="budget-current">₹600</span>
+            <span>₹2000</span>
+          </div>
+        </div>
+
+        <div class="wizard-nav">
+          <button id="step3-back" class="btn btn-ghost">← Back</button>
+          <button id="generate-btn" class="btn btn-primary btn-lg">
+            ✨ Generate My Plan
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== LOADING SCREEN ========== -->
+  <section id="loading" class="screen hidden">
+    <div class="container loading-content">
+      <div class="loading-spinner" id="loading-emoji">🍳</div>
+      <h2>Crafting your perfect day...</h2>
+      <p class="loading-sub">Our AI chef is planning your meals</p>
+      <div class="loading-bar">
+        <div class="loading-bar-fill"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== ERROR SCREEN ========== -->
+  <section id="error-screen" class="screen hidden">
+    <div class="container error-content">
+      <div class="error-icon">😕</div>
+      <h2>Something went wrong</h2>
+      <p id="error-message">We couldn't generate your meal plan. Please try again.</p>
+      <div class="error-actions">
+        <button id="retry-btn" class="btn btn-primary">Try Again</button>
+        <button id="change-key-btn" class="btn btn-ghost">Change API Key</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== RESULTS SCREEN ========== -->
+  <section id="results" class="screen hidden">
+    <div class="container">
+      <div class="results-header">
+        <div>
+          <h1>Your Meal Plan</h1>
+          <p class="results-meta" id="results-meta"></p>
+        </div>
+        <div class="results-actions">
+          <button id="copy-btn" class="btn btn-ghost btn-sm">📋 Copy</button>
+          <button id="new-plan-btn" class="btn btn-primary btn-sm">🔄 New Plan</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" id="result-tabs">
+        <button class="tab active" data-tab="meals">🍽️ Meals</button>
+        <button class="tab" data-tab="grocery">🛒 Grocery</button>
+        <button class="tab" data-tab="substitutions">🔄 Swaps</button>
+        <button class="tab" data-tab="budget">💰 Budget</button>
+      </div>
+
+      <!-- Tab Content -->
+      <div id="tab-meals" class="tab-content active"></div>
+      <div id="tab-grocery" class="tab-content hidden"></div>
+      <div id="tab-substitutions" class="tab-content hidden"></div>
+      <div id="tab-budget" class="tab-content hidden"></div>
+    </div>
+  </section>
+
+  <!-- ========== TOAST ========== -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Scripts -->
+  <script src="js/utils.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
