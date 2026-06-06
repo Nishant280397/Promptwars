@@ -8,7 +8,7 @@
 
   /* --- App State --- */
   const state = {
-    currentScreen: 'welcome',   // welcome | wizard | loading | results | error-screen
+    currentScreen: 'welcome',
     wizardStep: 1,
     preferences: {
       diet: null,
@@ -19,39 +19,40 @@
       skill: null,
       budget: 600
     },
-    mealPlan: null
+    mealPlan: null,
+    isGenerating: false  // Prevent double submissions
+  };
+
+  /* --- Allowed values (input validation) --- */
+  const VALID = {
+    diet: ['vegetarian', 'non-vegetarian', 'vegan', 'eggetarian'],
+    cuisine: ['north-indian', 'south-indian', 'chinese', 'mixed'],
+    allergies: ['dairy', 'nuts', 'gluten', 'soy', 'none'],
+    dayType: ['busy', 'relaxed', 'hosting'],
+    skill: ['beginner', 'intermediate', 'advanced']
   };
 
   /* --- Initialize --- */
   function init() {
-    // Restore saved preferences
     const saved = Utils.getPreferences();
     if (saved) {
       Object.assign(state.preferences, saved);
     }
-
     bindEvents();
     UI.initTabs();
   }
 
   /* --- Event Binding --- */
   function bindEvents() {
-    // Welcome → Start
-    document.getElementById('start-btn').addEventListener('click', handleStart);
-
-    // API Key modal
-    document.getElementById('save-key-btn').addEventListener('click', handleSaveKey);
-    document.getElementById('cancel-key-btn').addEventListener('click', () => UI.hideModal('api-modal'));
-    document.getElementById('api-key-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleSaveKey();
+    // Welcome → Wizard
+    document.getElementById('start-btn').addEventListener('click', () => {
+      navigateToWizard();
     });
 
-    // Wizard step 1 — option cards (diet, cuisine, allergies)
+    // Wizard option cards
     bindOptionCards('diet-options', 'diet', false);
     bindOptionCards('cuisine-options', 'cuisine', false);
     bindOptionCards('allergy-options', 'allergies', true);
-
-    // Wizard step 2 — day type, skill
     bindOptionCards('daytype-options', 'dayType', false);
     bindOptionCards('skill-options', 'skill', false);
 
@@ -59,24 +60,28 @@
     document.getElementById('people-minus').addEventListener('click', () => {
       if (state.preferences.people > 1) {
         state.preferences.people--;
-        document.getElementById('people-count').textContent = state.preferences.people;
+        updatePeopleCount();
       }
     });
     document.getElementById('people-plus').addEventListener('click', () => {
       if (state.preferences.people < 20) {
         state.preferences.people++;
-        document.getElementById('people-count').textContent = state.preferences.people;
+        updatePeopleCount();
       }
     });
 
-    // Wizard step 3 — budget
+    // Budget
     bindOptionCards('budget-presets', 'budgetPreset', false);
     const slider = document.getElementById('budget-slider');
     slider.addEventListener('input', () => {
       state.preferences.budget = parseInt(slider.value);
       document.getElementById('budget-value').textContent = Utils.formatCurrency(slider.value);
-      // Deselect preset buttons
-      document.querySelectorAll('#budget-presets .option-card').forEach(c => c.classList.remove('selected'));
+      slider.setAttribute('aria-valuenow', slider.value);
+      slider.setAttribute('aria-valuetext', Utils.formatCurrency(slider.value));
+      document.querySelectorAll('#budget-presets .option-card').forEach(c => {
+        c.classList.remove('selected');
+        c.setAttribute('aria-checked', 'false');
+      });
     });
 
     // Wizard navigation
@@ -95,99 +100,94 @@
 
     // Error actions
     document.getElementById('retry-btn').addEventListener('click', handleGenerate);
-    document.getElementById('change-key-btn').addEventListener('click', () => {
-      Utils.clearApiKey();
-      UI.showModal('api-modal');
-    });
+  }
+
+  function updatePeopleCount() {
+    const el = document.getElementById('people-count');
+    el.textContent = state.preferences.people;
+    Utils.announce(`${state.preferences.people} people`);
   }
 
   /**
    * Bind single-select or multi-select option cards
+   * Includes keyboard support (Enter/Space) and ARIA state management
    */
   function bindOptionCards(containerId, field, isMulti) {
     const container = document.getElementById(containerId);
-    container.addEventListener('click', (e) => {
-      const card = e.target.closest('.option-card');
-      if (!card) return;
 
+    function handleSelect(card) {
       const value = card.dataset.value;
 
+      // Validate value against whitelist
+      const validValues = VALID[field] || VALID[card.dataset.field];
+      if (validValues && !validValues.includes(value) && field !== 'budgetPreset') {
+        return;
+      }
+
       if (isMulti) {
-        // Toggle multi-select
         card.classList.toggle('selected');
-        // Handle "none" clearing others
+        const isSelected = card.classList.contains('selected');
+        card.setAttribute('aria-checked', String(isSelected));
+
         if (value === 'none') {
           container.querySelectorAll('.option-card').forEach(c => {
-            if (c !== card) c.classList.remove('selected');
+            if (c !== card) {
+              c.classList.remove('selected');
+              c.setAttribute('aria-checked', 'false');
+            }
           });
           state.preferences[field] = ['none'];
         } else {
-          // Deselect "none"
-          container.querySelector('[data-value="none"]')?.classList.remove('selected');
+          const noneCard = container.querySelector('[data-value="none"]');
+          if (noneCard) {
+            noneCard.classList.remove('selected');
+            noneCard.setAttribute('aria-checked', 'false');
+          }
           const selected = container.querySelectorAll('.option-card.selected');
           state.preferences[field] = Array.from(selected).map(c => c.dataset.value);
         }
       } else {
-        // Single select
-        container.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+        container.querySelectorAll('.option-card').forEach(c => {
+          c.classList.remove('selected');
+          c.setAttribute('aria-checked', 'false');
+        });
         card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
 
         if (field === 'budgetPreset') {
           const budgetVal = parseInt(value);
-          state.preferences.budget = budgetVal;
-          const slider = document.getElementById('budget-slider');
-          slider.value = budgetVal;
-          document.getElementById('budget-value').textContent = Utils.formatCurrency(budgetVal);
+          if (budgetVal >= 200 && budgetVal <= 2000) {
+            state.preferences.budget = budgetVal;
+            const slider = document.getElementById('budget-slider');
+            slider.value = budgetVal;
+            slider.setAttribute('aria-valuenow', budgetVal);
+            slider.setAttribute('aria-valuetext', Utils.formatCurrency(budgetVal));
+            document.getElementById('budget-value').textContent = Utils.formatCurrency(budgetVal);
+          }
         } else {
           state.preferences[field] = value;
         }
+      }
+    }
+
+    // Click handler
+    container.addEventListener('click', (e) => {
+      const card = e.target.closest('.option-card');
+      if (card) handleSelect(card);
+    });
+
+    // Keyboard: Enter/Space to select
+    container.addEventListener('keydown', (e) => {
+      const card = e.target.closest('.option-card');
+      if (!card) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleSelect(card);
       }
     });
   }
 
   /* --- Navigation --- */
-  function handleStart() {
-    const apiKey = Utils.getApiKey();
-    if (!apiKey) {
-      UI.showModal('api-modal');
-      document.getElementById('api-key-input').focus();
-    } else {
-      navigateToWizard();
-    }
-  }
-
-  async function handleSaveKey() {
-    const input = document.getElementById('api-key-input');
-    const key = input.value.trim();
-    const errorEl = document.getElementById('api-key-error');
-
-    if (!key) {
-      errorEl.textContent = 'Please enter an API key.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-
-    // Show loading state
-    const btn = document.getElementById('save-key-btn');
-    btn.textContent = 'Validating...';
-    btn.disabled = true;
-
-    const valid = await AI.validateApiKey(key);
-
-    if (valid) {
-      Utils.saveApiKey(key);
-      errorEl.classList.add('hidden');
-      UI.hideModal('api-modal');
-      navigateToWizard();
-    } else {
-      errorEl.textContent = 'Invalid API key. Please check and try again.';
-      errorEl.classList.remove('hidden');
-    }
-
-    btn.textContent = 'Save & Continue';
-    btn.disabled = false;
-  }
-
   function navigateToWizard() {
     state.currentScreen = 'wizard';
     state.wizardStep = 1;
@@ -196,11 +196,11 @@
   }
 
   function goToWizardStep(step) {
-    // Validate current step before advancing
     if (step > state.wizardStep) {
       const errors = validateStep(state.wizardStep);
       if (errors) {
         Utils.showToast(errors);
+        Utils.announce(errors);
         return;
       }
     }
@@ -232,17 +232,29 @@
 
   /* --- Generate Plan --- */
   async function handleGenerate() {
+    // Prevent double submissions
+    if (state.isGenerating) return;
+
     const errors = validateStep(3);
     if (errors) {
       Utils.showToast(errors);
+      Utils.announce(errors);
       return;
     }
 
-    const apiKey = Utils.getApiKey();
-    if (!apiKey) {
-      UI.showModal('api-modal');
+    // Final input validation before sending
+    const p = state.preferences;
+    if (!VALID.diet.includes(p.diet) ||
+        !VALID.cuisine.includes(p.cuisine) ||
+        !VALID.dayType.includes(p.dayType) ||
+        !VALID.skill.includes(p.skill) ||
+        p.people < 1 || p.people > 20 ||
+        p.budget < 200 || p.budget > 2000) {
+      Utils.showToast('Invalid preferences. Please go back and check.');
       return;
     }
+
+    state.isGenerating = true;
 
     // Save preferences
     Utils.savePreferences(state.preferences);
@@ -250,13 +262,17 @@
     // Show loading
     state.currentScreen = 'loading';
     UI.showScreen('loading');
+    Utils.announce('Generating your meal plan. Please wait.');
+
+    // Disable generate button
+    const genBtn = document.getElementById('generate-btn');
+    genBtn.disabled = true;
 
     try {
-      const plan = await AI.generateMealPlan(state.preferences, apiKey);
+      const plan = await AI.generateMealPlan(state.preferences);
       state.mealPlan = plan;
       Utils.saveMealPlan(plan);
 
-      // Show results
       state.currentScreen = 'results';
       UI.showScreen('results');
       UI.renderResults(plan, state.preferences);
@@ -265,6 +281,10 @@
       state.currentScreen = 'error-screen';
       document.getElementById('error-message').textContent = error.message;
       UI.showScreen('error-screen');
+      Utils.announce('Error: ' + error.message);
+    } finally {
+      state.isGenerating = false;
+      genBtn.disabled = false;
     }
   }
 
@@ -274,6 +294,7 @@
     const text = Utils.formatPlanAsText(state.mealPlan);
     await Utils.copyToClipboard(text);
     Utils.showToast('📋 Copied to clipboard!');
+    Utils.announce('Meal plan copied to clipboard.');
   }
 
   function handleNewPlan() {

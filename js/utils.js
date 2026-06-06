@@ -4,18 +4,12 @@
 
 const Utils = {
   /* --- localStorage --- */
-  saveApiKey(key) {
-    localStorage.setItem('bhookh_api_key', key);
-  },
-  getApiKey() {
-    return localStorage.getItem('bhookh_api_key');
-  },
-  clearApiKey() {
-    localStorage.removeItem('bhookh_api_key');
-  },
-
   savePreferences(prefs) {
-    localStorage.setItem('bhookh_prefs', JSON.stringify(prefs));
+    try {
+      localStorage.setItem('bhookh_prefs', JSON.stringify(prefs));
+    } catch (e) {
+      console.warn('Could not save preferences:', e);
+    }
   },
   getPreferences() {
     try {
@@ -26,7 +20,11 @@ const Utils = {
   },
 
   saveMealPlan(plan) {
-    localStorage.setItem('bhookh_last_plan', JSON.stringify(plan));
+    try {
+      localStorage.setItem('bhookh_last_plan', JSON.stringify(plan));
+    } catch (e) {
+      console.warn('Could not save meal plan:', e);
+    }
   },
   getLastPlan() {
     try {
@@ -34,6 +32,20 @@ const Utils = {
     } catch {
       return null;
     }
+  },
+
+  /* --- Security: HTML sanitization --- */
+  /**
+   * Escapes HTML special characters to prevent XSS
+   * when rendering AI-generated content into the DOM.
+   * @param {string} str - Untrusted string
+   * @returns {string} Escaped safe string
+   */
+  escapeHTML(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
   },
 
   /* --- Currency --- */
@@ -49,9 +61,10 @@ const Utils = {
       await navigator.clipboard.writeText(text);
       return true;
     } catch {
-      // Fallback
+      // Fallback for older browsers
       const ta = document.createElement('textarea');
       ta.value = text;
+      ta.setAttribute('readonly', '');
       ta.style.position = 'fixed';
       ta.style.left = '-9999px';
       document.body.appendChild(ta);
@@ -126,5 +139,19 @@ const Utils = {
       toast.classList.remove('show');
       setTimeout(() => toast.classList.add('hidden'), 300);
     }, duration);
+  },
+
+  /* --- Screen reader announcement --- */
+  /**
+   * Announce a message to screen readers via the live region
+   * @param {string} message - Text to announce
+   */
+  announce(message) {
+    const el = document.getElementById('sr-announcer');
+    if (el) {
+      el.textContent = '';
+      // Small delay to ensure the change is picked up
+      setTimeout(() => { el.textContent = message; }, 50);
+    }
   }
 };
