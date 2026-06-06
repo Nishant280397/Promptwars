@@ -1,4 +1,4 @@
-# 🍳 MealMind — AI-Powered Cooking Planner
+# 🍳 Bhookh — AI-Powered Cooking Planner
 
 A micro web app that generates a personalized daily meal plan with grocery lists, ingredient substitutions, and budget analysis — powered by Google Gemini AI.
 

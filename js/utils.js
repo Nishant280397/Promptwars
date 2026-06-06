@@ -1,36 +1,36 @@
 /* ===========================
-   MealMind — Utility Functions
+   Bhookh — Utility Functions
    =========================== */
 
 const Utils = {
   /* --- localStorage --- */
   saveApiKey(key) {
-    localStorage.setItem('mealmind_api_key', key);
+    localStorage.setItem('bhookh_api_key', key);
   },
   getApiKey() {
-    return localStorage.getItem('mealmind_api_key');
+    return localStorage.getItem('bhookh_api_key');
   },
   clearApiKey() {
-    localStorage.removeItem('mealmind_api_key');
+    localStorage.removeItem('bhookh_api_key');
   },
 
   savePreferences(prefs) {
-    localStorage.setItem('mealmind_prefs', JSON.stringify(prefs));
+    localStorage.setItem('bhookh_prefs', JSON.stringify(prefs));
   },
   getPreferences() {
     try {
-      return JSON.parse(localStorage.getItem('mealmind_prefs'));
+      return JSON.parse(localStorage.getItem('bhookh_prefs'));
     } catch {
       return null;
     }
   },
 
   saveMealPlan(plan) {
-    localStorage.setItem('mealmind_last_plan', JSON.stringify(plan));
+    localStorage.setItem('bhookh_last_plan', JSON.stringify(plan));
   },
   getLastPlan() {
     try {
-      return JSON.parse(localStorage.getItem('mealmind_last_plan'));
+      return JSON.parse(localStorage.getItem('bhookh_last_plan'));
     } catch {
       return null;
     }
@@ -65,7 +65,7 @@ const Utils = {
   /* --- Format meal plan as plain text for copy --- */
   formatPlanAsText(plan) {
     if (!plan) return '';
-    let text = '🍳 MealMind — Your Daily Meal Plan\n';
+    let text = '🍳 Bhookh — Your Daily Meal Plan\n';
     text += '='.repeat(40) + '\n\n';
 
     // Meals

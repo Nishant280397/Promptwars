@@ -1,5 +1,5 @@
 /* ===========================
-   MealMind — App Controller
+   Bhookh — App Controller
    State management, navigation, events
    =========================== */
 

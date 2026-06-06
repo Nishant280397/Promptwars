@@ -1,5 +1,5 @@
 /* ===========================
-   MealMind — Gemini AI Integration
+   Bhookh — Gemini AI Integration
    =========================== */
 
 const AI = {

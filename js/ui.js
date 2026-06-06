@@ -1,5 +1,5 @@
 /* ===========================
-   MealMind — UI Rendering
+   Bhookh — UI Rendering
    =========================== */
 
 const UI = {
